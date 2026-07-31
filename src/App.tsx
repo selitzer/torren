@@ -21,6 +21,9 @@ type ReleaseManifest = {
   releaseNotes: string[]
 }
 
+const productionManifestUrl =
+  'https://torren-app-downloads.sfo3.cdn.digitaloceanspaces.com/latest.json'
+
 const fallbackRelease: ReleaseManifest = {
   version: 'Latest',
   released: 'Available now',
@@ -41,6 +44,17 @@ function isReleaseManifest(value: unknown): value is ReleaseManifest {
     Array.isArray(release.releaseNotes) &&
     release.releaseNotes.every((note) => typeof note === 'string')
   )
+}
+
+async function fetchReleaseManifest(url: string, signal: AbortSignal) {
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json' },
+    signal,
+  })
+  if (!response.ok) throw new Error(`Release manifest returned ${response.status}`)
+  const manifest: unknown = await response.json()
+  if (!isReleaseManifest(manifest)) throw new Error('Release manifest is invalid')
+  return manifest
 }
 
 type DownloadLinkProps = {
@@ -539,16 +553,25 @@ export default function App() {
 
     const loadLatestRelease = async () => {
       try {
-        const response = await fetch(`${import.meta.env.BASE_URL}latest.json`, {
-          headers: { Accept: 'application/json' },
-          signal: controller.signal,
-        })
-        if (!response.ok) throw new Error(`Release manifest returned ${response.status}`)
-        const manifest: unknown = await response.json()
-        if (!isReleaseManifest(manifest)) throw new Error('Release manifest is invalid')
+        const manifest = await fetchReleaseManifest(productionManifestUrl, controller.signal)
         setLatest(manifest)
       } catch (error) {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+
+        if (import.meta.env.DEV) {
+          try {
+            const localManifestUrl = `${import.meta.env.BASE_URL}latest.json`
+            const manifest = await fetchReleaseManifest(localManifestUrl, controller.signal)
+            setLatest(manifest)
+            return
+          } catch (fallbackError) {
+            if (fallbackError instanceof DOMException && fallbackError.name === 'AbortError') return
+            console.error(
+              'Torren release information is temporarily unavailable.',
+              fallbackError,
+            )
+          }
+        } else {
           console.error('Torren release information is temporarily unavailable.', error)
         }
       } finally {

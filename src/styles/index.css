@@ -1028,12 +1028,60 @@ main {
   background: #efeee9;
   font-size: 0.7rem;
   font-weight: 750;
+  text-decoration: none;
   cursor: pointer;
   transition: background 180ms ease;
 }
 
 .release-download:hover {
   background: #dcdad3;
+}
+
+.download-target {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.download-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 100;
+  display: grid;
+  gap: 5px;
+  width: min(320px, calc(100vw - 32px));
+  padding: 15px 17px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #f3f2ed;
+  background: #1b1c20;
+  box-shadow: 0 14px 34px rgba(17, 18, 22, 0.2);
+}
+
+.download-toast strong {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.download-toast span {
+  color: #aeb0b5;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.download-toast a {
+  color: #f3f2ed;
+  text-underline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .download-toast {
+    animation: none;
+  }
 }
 
 /* FAQ */

@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "released": "July 31, 2026",
+  "platform": "Windows 10 / 11",
+  "architecture": "x64",
+  "downloadSize": "95 MB",
+  "downloadUrl": "https://torren-app-downloads.sfo3.cdn.digitaloceanspaces.com/Torren-Setup-1.0.0.exe",
+  "sha256": "B5932CA885081F1CAA83A78C616794B76C66AF31EDF3796B903EB59C9C14E2DC",
+  "releaseNotes": [
+    "Initial public release.",
+    "Live process monitoring.",
+    "Application grouping.",
+    "Startup management.",
+    "Profiles.",
+    "Optimization dashboard."
+  ]
+}

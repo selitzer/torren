@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   ArrowRight,
   BookOpen,
@@ -10,8 +10,69 @@ import {
   X,
 } from 'lucide-react'
 
-const release = {
-  title: 'Torren 1.1',
+type ReleaseManifest = {
+  version: string
+  released: string
+  platform: string
+  architecture: string
+  downloadSize: string
+  downloadUrl: string
+  sha256: string
+  releaseNotes: string[]
+}
+
+const fallbackRelease: ReleaseManifest = {
+  version: 'Latest',
+  released: 'Available now',
+  platform: 'Windows 10 / 11',
+  architecture: 'x64',
+  downloadSize: 'Not available',
+  downloadUrl: '',
+  sha256: '',
+  releaseNotes: [],
+}
+
+function isReleaseManifest(value: unknown): value is ReleaseManifest {
+  if (!value || typeof value !== 'object') return false
+  const release = value as Record<string, unknown>
+  return (
+    ['version', 'released', 'platform', 'architecture', 'downloadSize', 'downloadUrl', 'sha256']
+      .every((field) => typeof release[field] === 'string') &&
+    Array.isArray(release.releaseNotes) &&
+    release.releaseNotes.every((note) => typeof note === 'string')
+  )
+}
+
+type DownloadLinkProps = {
+  children: ReactNode
+  className: string
+  latest: ReleaseManifest
+  onDownload: () => void
+  onClick?: () => void
+}
+
+function DownloadLink({ children, className, latest, onDownload, onClick }: DownloadLinkProps) {
+  const available = latest.downloadUrl.length > 0
+
+  return (
+    <a
+      className={className}
+      href={available ? latest.downloadUrl : '#release'}
+      target={available ? 'torren-download' : undefined}
+      download={available ? `Torren-Setup-${latest.version}.exe` : undefined}
+      aria-disabled={!available}
+      onClick={(event) => {
+        onClick?.()
+        if (!available) {
+          event.preventDefault()
+          return
+        }
+        onDownload()
+      }}
+    >
+      {children}
+    </a>
+  )
 }
 
 const workflowSteps = [
@@ -64,7 +125,7 @@ const questions = [
   },
 ]
 
-function Header() {
+function Header({ latest, onDownload }: { latest: ReleaseManifest; onDownload: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
@@ -89,12 +150,12 @@ function Header() {
           <a href="#faq">FAQ</a>
         </nav>
         <div className="header-cta-wrap">
-          <a className="header-cta" href="#release">
+          <DownloadLink className="header-cta" latest={latest} onDownload={onDownload}>
             <span className="header-cta-label">Try Torren</span>
             <span className="header-cta-icon">
               <ArrowRight size={15} aria-hidden="true" />
             </span>
-          </a>
+          </DownloadLink>
         </div>
       </div>
       <button
@@ -116,9 +177,14 @@ function Header() {
           <a href="#product" onClick={closeMenu}>Product</a>
           <a href="#release" onClick={closeMenu}>Release</a>
           <a href="#faq" onClick={closeMenu}>FAQ</a>
-          <a className="mobile-cta" href="#release" onClick={closeMenu}>
+          <DownloadLink
+            className="mobile-cta"
+            latest={latest}
+            onDownload={onDownload}
+            onClick={closeMenu}
+          >
             Try Torren <ArrowRight size={16} aria-hidden="true" />
-          </a>
+          </DownloadLink>
         </nav>
       </div>
     </header>
@@ -261,7 +327,15 @@ function ProductPanel() {
   )
 }
 
-function ReleaseAndFaq() {
+function ReleaseAndFaq({
+  latest,
+  loading,
+  onDownload,
+}: {
+  latest: ReleaseManifest
+  loading: boolean
+  onDownload: () => void
+}) {
   const [activeStage, setActiveStage] = useState(0)
   const [cycleKey, setCycleKey] = useState(0)
   const activeStep = workflowSteps[activeStage]
@@ -385,26 +459,34 @@ function ReleaseAndFaq() {
         <i />
       </div>
 
-      <article className="release-card">
+      <article className="release-card" aria-busy={loading}>
         <div className="release-copy">
-          <h3>{release.title}</h3>
+          <h3>Torren {latest.version}</h3>
         </div>
 
         <div className="release-meta">
           <div>
             <span>Released</span>
-            <strong>July 18, 2026</strong>
+            <strong>{latest.released}</strong>
           </div>
           <div>
             <span>Runs on</span>
-            <strong>Windows 10 / 11</strong>
+            <strong>{latest.platform}</strong>
+          </div>
+          <div>
+            <span>Architecture</span>
+            <strong>{latest.architecture}</strong>
+          </div>
+          <div>
+            <span>Download</span>
+            <strong>{latest.downloadSize}</strong>
           </div>
         </div>
 
-        <button className="release-download" type="button">
+        <DownloadLink className="release-download" latest={latest} onDownload={onDownload}>
           <span>Download</span>
           <ArrowRight size={15} aria-hidden="true" />
-        </button>
+        </DownloadLink>
       </article>
 
       <div className="faq" id="faq">
@@ -448,15 +530,75 @@ function Footer() {
 }
 
 export default function App() {
+  const [latest, setLatest] = useState<ReleaseManifest>(fallbackRelease)
+  const [releaseLoading, setReleaseLoading] = useState(true)
+  const [downloadToastKey, setDownloadToastKey] = useState(0)
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    const loadLatestRelease = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.BASE_URL}latest.json`, {
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+        })
+        if (!response.ok) throw new Error(`Release manifest returned ${response.status}`)
+        const manifest: unknown = await response.json()
+        if (!isReleaseManifest(manifest)) throw new Error('Release manifest is invalid')
+        setLatest(manifest)
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.error('Torren release information is temporarily unavailable.', error)
+        }
+      } finally {
+        if (!controller.signal.aborted) setReleaseLoading(false)
+      }
+    }
+
+    void loadLatestRelease()
+    return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    if (downloadToastKey === 0) return
+    const timer = window.setTimeout(() => setDownloadToastKey(0), 6000)
+    return () => window.clearTimeout(timer)
+  }, [downloadToastKey])
+
+  const showDownloadToast = () => setDownloadToastKey((key) => key + 1)
+
   return (
     <>
-      <Header />
+      <Header latest={latest} onDownload={showDownloadToast} />
       <main>
         <Hero />
         <ProductPanel />
-        <ReleaseAndFaq />
+        <ReleaseAndFaq
+          latest={latest}
+          loading={releaseLoading}
+          onDownload={showDownloadToast}
+        />
       </main>
       <Footer />
+      <iframe className="download-target" name="torren-download" title="Torren download" />
+      {downloadToastKey > 0 && latest.downloadUrl && (
+        <aside className="download-toast" role="status" aria-live="polite">
+          <strong>Downloading Torren...</strong>
+          <span>
+            If your download doesn&apos;t begin,{' '}
+            <a
+              href={latest.downloadUrl}
+              target="torren-download"
+              download={`Torren-Setup-${latest.version}.exe`}
+              onClick={showDownloadToast}
+            >
+              click here
+            </a>
+            .
+          </span>
+        </aside>
+      )}
     </>
   )
 }

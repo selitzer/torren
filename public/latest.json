@@ -5,7 +5,7 @@
   "architecture": "x64",
   "downloadSize": "95 MB",
   "downloadUrl": "https://torren-app-downloads.sfo3.cdn.digitaloceanspaces.com/Torren-Setup-1.0.0.exe",
-  "sha256": "B5932CA885081F1CAA83A78C616794B76C66AF31EDF3796B903EB59C9C14E2DC",
+  "sha256": "8686B8A0AB4A1A080DBC5BD1C7C22E607B7E45AAA54B59CC6E82D760D72D1DD0",
   "releaseNotes": [
     "Initial public release.",
     "Live process monitoring.",
